@@ -9,4 +9,6 @@ router.post('/consommation_mensuelle', batimentController.getConsommationMensuel
 router.get('/top2', batimentController.getTopBatimentsConsommationFaible);
 router.get('/top3', batimentController.getTop3BatimentsConsommationFaible);
 router.get('/profile/:id', batimentController.getProfileConsommation);
+router.get('/batimentfonct', batimentController.getBatimentsForFonctionnaire);
+router.get('/profilebybatiment/:id', batimentController.getProfileByBatimentId);
 module.exports= router ;
