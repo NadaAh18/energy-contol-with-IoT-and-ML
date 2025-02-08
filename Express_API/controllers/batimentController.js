@@ -4,6 +4,71 @@ require('dotenv').config();
 const Batiment = require('../models/Batiment');
 const Energie = require('../models/Energie');
 
+const getBatimentsForFonctionnaire = async (req, res) => {
+    try {
+        // Récupérer la consommation totale de chaque bâtiment
+        const consommations = await Energie.aggregate([
+            {
+                $group: {
+                    _id: "$id_batiment",
+                    consommation_totale: { $sum: "$consommation_bruite" }
+                }
+            },
+            { $sort: { consommation_totale: 1 } }, // Trier par consommation croissante
+            { $limit: 5 } // Sélectionner les 5 premiers
+        ]);
+
+        // Récupérer les informations des bâtiments
+        const batiments = await Batiment.find({
+            _id: { $in: consommations.map(c => c._id) }
+        });
+
+        res.status(200).json(batiments);
+    } catch (err) {
+        console.error("Erreur :", err);
+        res.status(500).json({ message: "Erreur lors de la récupération des bâtiments", err });
+    }
+};
+const getProfileByBatimentId = async (req, res) => {
+    const { id } = req.params;  
+
+    try {
+        // Vérifier si le bâtiment existe
+        const batiment = await Batiment.findById(id);
+        if (!batiment) {
+            return res.status(404).json({ message: 'Bâtiment non trouvé' });
+        }
+
+        // Récupérer la consommation énergétique
+        const consommation = await Energie.aggregate([
+            { $match: { id_batiment: id } },
+            {
+                $group: {
+                    _id: "$id_batiment",
+                    consommation_totale: { $sum: "$consommation_bruite" },
+                    consommation_moyenne: { $avg: "$consommation_bruite" }
+                }
+            }
+        ]);
+
+        if (consommation.length === 0) {
+            return res.status(404).json({ message: 'Aucune consommation trouvée pour ce bâtiment' });
+        }
+
+        const consommationDetails = consommation[0];
+
+        const profile = {
+            adresse: batiment.adresse,
+            consommation_totale: consommationDetails.consommation_totale,  // kWh 
+            consommation_par_jour: (consommationDetails.consommation_moyenne / 30).toFixed(2)  // Moyenne quotidienne
+        };
+
+        res.status(200).json(profile);
+    } catch (err) {
+        console.error('Erreur :', err);
+        res.status(500).json({ message: 'Erreur lors de la récupération du profil de consommation', err });
+    }
+};
 
 const getProfileConsommation = async (req, res) => {
     const { id } = req.params;  
@@ -275,5 +340,7 @@ module.exports = {
     createBatiment,
     getConsommationMensuelle,
     getProfileConsommation,
+    getProfileByBatimentId,
+    getBatimentsForFonctionnaire
 };
 
